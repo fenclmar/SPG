@@ -251,6 +251,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
     dimnames(flow.out) <- dimnames(flow)
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
+    attr(flow.out, "vol.sump") <- V # store volume in the pump sump as attribute
 
     return(flow.out)
 
