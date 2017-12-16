@@ -203,7 +203,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
     temp.res.sim <- attr(flow, "temp.res.sim")
 
     ## V = Volume of water in 'tank'
-    V <- rep(0, nrow(flow))
+    V <- rep(V.min, nrow(flow))
     ## S = mass of substance in 'tank'
     S <- rep(0, nrow(flow))
 
