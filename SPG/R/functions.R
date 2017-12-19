@@ -212,25 +212,46 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
     ## substance flow out of pump
     S.out <- rep(0, nrow(flow))
 
+    ## Check for possible errors due to raw temporal resolution of simulation
+    if (pump.rate * temp.res.sim <= (V.max - V.min)) {warning('Low temp. resolution for given pump rate and tank volume!')}
+    if (max(flow[ ,1], na.rm = T) > (V.max - V.min)) {warning('Low temp. resolution for given flow rate and tank volume!')}
+  
     ## state of pump
     state <- 'off'
     ## mass balances
     for(t in 2:nrow(flow)) {
         ## switch pump 'on' if volume is larger than V.max
-        if(V[t-1] > V.max) {
+        
+        Vt <- V[t-1] + (flow[t-1, 1] - pump.rate * (state == 'on')) * temp.res.sim
+        
+        state.changed <- F
+        if(Vt >= V.max) {
             state <- 'on'
+            state.changed <- T  
         }
-        ## switch pump 'off' if V < V.min
-        if(state=='on' & V[t-1] <= V.min) {
+        ## switch pump 'off' if V <= V.min
+        if(state=='on' & Vt <= V.min) {
             state <- 'off'
+            state.changed <- T
         }
 
         ## set Q.out
-        if(state=='on') {
+        if(state.changed & state == 'on'){
+          Q.out[t-1] <- min(pump.rate * (Vt - V[t-1])/V.max, V[t-1]/temp.res.sim + flow[t-1, 1])
+        }
+      
+        if(state.changed & state == 'off'){
+          Q.out[t-1] <- min(pump.rate * (V[t-1] - Vt)/V.min, V[t-1]/temp.res.sim + flow[t-1, 1])
+        }
+      
+        
+        if(!state.changed & state=='on') {
             Q.out[t-1] <- min(pump.rate, V[t-1]/temp.res.sim + flow[t-1, 1]) #
-            ## pump not more out than what is in the tank
-        } else {
-            Q.out[t-1] <- 0
+            ## pump not more out than V-Vmin or what is in the tank
+        }
+      
+        if(!state.changed & state=='off') {
+            Q.out[t-1] <- 0 #
         }
 
         ## mass balance for water
