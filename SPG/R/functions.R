@@ -237,11 +237,11 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
 
         ## set Q.out
         if(state.changed & state == 'on'){
-          Q.out[t-1] <- min(pump.rate * (Vt - V[t-1])/V.max, V[t-1]/temp.res.sim + flow[t-1, 1])
+          Q.out[t-1] <- min(pump.rate * abs((Vt - V.max) / (Vt - V[t-1])), V[t-1]/temp.res.sim + flow[t-1, 1])
         }
       
         if(state.changed & state == 'off'){
-          Q.out[t-1] <- min(pump.rate * (V[t-1] - Vt)/V.min, V[t-1]/temp.res.sim + flow[t-1, 1])
+          Q.out[t-1] <- min(pump.rate * abs((V.min - Vt) / (Vt - V[t-1])), V[t-1]/temp.res.sim + flow[t-1, 1])
         }
       
         
