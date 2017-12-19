@@ -241,10 +241,9 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
         }
       
         if(state.changed & state == 'off'){
-          Q.out[t-1] <- min(pump.rate * abs((V.min - Vt) / (Vt - V[t-1])), V[t-1]/temp.res.sim + flow[t-1, 1])
+          Q.out[t-1] <- min(pump.rate * abs((V[t-1] - V.min) / (Vt - V[t-1])), V[t-1]/temp.res.sim + flow[t-1, 1])
         }
       
-        
         if(!state.changed & state=='on') {
             Q.out[t-1] <- min(pump.rate, V[t-1]/temp.res.sim + flow[t-1, 1]) #
             ## pump not more out than V-Vmin or what is in the tank
