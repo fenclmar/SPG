@@ -213,7 +213,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
     S.out <- rep(0, nrow(flow))
 
     ## Check for possible errors due to raw temporal resolution of simulation
-    if (pump.rate * temp.res.sim <= (V.max - V.min)) {warning('Low temp. resolution for given pump rate and tank volume!')}
+    if (pump.rate * temp.res.sim => (V.max - V.min)) {warning('Low temp. resolution for given pump rate and tank volume!')}
     if (max(flow[ ,1], na.rm = T) > (V.max - V.min)) {warning('Low temp. resolution for given flow rate and tank volume!')}
   
     ## state of pump
