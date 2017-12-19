@@ -235,7 +235,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
             state.changed <- T
         }
 
-        ## set period of pumping as a propotion of time step
+        ## proportion of time step the pump was on
         if(state.changed){
           
           if (state == 'on'){
@@ -253,7 +253,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
         
         ## set Q.out 
         Q.out[t-1] <- min(pump.rate * T.pumped, V[t-1]/temp.res.sim + flow[t-1, 1]) #
-        ## pump not more out than V-Vmin or what is in the tank
+        ## pump not more out than what is in the tank
 
         ## mass balance for water
         V[t] <- V[t-1] + (flow[t-1, 1] - Q.out[t-1])*temp.res.sim
