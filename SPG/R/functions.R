@@ -233,18 +233,15 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
         if(state=='on' & Vt <= V.min) {
             state <- 'off'
             state.changed <- T
-            warning('onoff')
         }
 
-        ## set time of pumping
+        ## set period of pumping as a propotion of time step
         if(state.changed){
           
           if (state == 'on'){
             T.pumped <- abs((Vt - V.max) / (Vt - V[t-1]))
-            warning(paste('T pumped', T.pumped))
           } else {
             T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - Vt))
-            warning(paste('T pumped', T.pumped))
           }
           
         } else {
