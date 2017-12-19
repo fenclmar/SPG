@@ -236,25 +236,27 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
             warning('onoff')
         }
 
-        ## set Q.out
-        if(state.changed & state == 'on'){
-          Q.out[t-1] <- min(pump.rate * abs((Vt - V.max) / (Vt - V[t-1])), V[t-1]/temp.res.sim + flow[t-1, 1])
-          warning(paste('Vmax reached', Q.out[t-1]))
+        ## set time of pumping
+        if(state.changed){
+          
+          if (state == 'on'){
+            T.pumped <- abs((Vt - V.max) / (Vt - V[t-1]))
+            warning(paste('T pumped', T.pumped))
+          } else {
+            T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - Vt))
+            warning(paste('T pumped', T.pumped))
+          }
+          
+        } else {
+          
+          if (state == 'on') {T.pumped <- 1} else {T.pumped <- 0}
+          
         }
       
-        if(state.changed & state == 'off'){
-          Q.out[t-1] <- min(pump.rate * abs((V[t-1] - V.min) / (V[t-1] - Vt)), V[t-1]/temp.res.sim + flow[t-1, 1])
-          warning(paste('Vmin reached', Q.out[t-1]))
-        }
-      
-        if(!state.changed & state=='on') {
-            Q.out[t-1] <- min(pump.rate, V[t-1]/temp.res.sim + flow[t-1, 1]) #
-            ## pump not more out than V-Vmin or what is in the tank
-        }
-      
-        if(!state.changed & state=='off') {
-            Q.out[t-1] <- 0 #
-        }
+        
+        ## set Q.out 
+        Q.out[t-1] <- min(pump.rate * T.pumped, V[t-1]/temp.res.sim + flow[t-1, 1]) #
+        ## pump not more out than V-Vmin or what is in the tank
 
         ## mass balance for water
         V[t] <- V[t-1] + (flow[t-1, 1] - Q.out[t-1])*temp.res.sim
