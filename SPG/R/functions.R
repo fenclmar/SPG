@@ -218,14 +218,16 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
   
     ## state of pump
     state <- 'off'
+    T.pumped <- 0
     ## mass balances
     for(t in 2:nrow(flow)) {
         ## switch pump 'on' if volume is larger than V.max
         
-        Vt <- V[t-1] + (flow[t-1, 1] - pump.rate * (state == 'on')) * temp.res.sim
+        ## new flow if pump was on/off in step t-1
+        V[t] <- V[t-1] + (flow[t-1, 1] - pump.rate * T.pumped) * temp.res.sim
         
         state.changed <- F
-        if(Vt >= V.max) {
+        if(V[t] >= V.max) {
            if (state == 'off') {state.changed <- T}  
            state <- 'on'
         }
@@ -236,20 +238,15 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
         }
 
         ## proportion of time step the pump was on
-        if(state.changed){
-          
-          if (state == 'on'){
-            T.pumped <- abs((Vt - V.max) / (Vt - V[t-1]))
-          } else {
-            T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - Vt))
-          }
-          
+        if (state == 'on'){ 
+          if(state.changed){
+              T.pumped <- abs((V[t] - V.max) / (V[t] - V[t-1]))        
+          } else {T.pumped <- 1}
         } else {
-          
-          if (state == 'on') {T.pumped <- 1} else {T.pumped <- 0}
-          
+          if(state.changed){
+             T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - V[t]))        
+          } else {T.pumped <- 0}
         }
-      
         
         ## set Q.out 
         Q.out[t-1] <- min(pump.rate * T.pumped, V[t-1]/temp.res.sim + flow[t-1, 1]) #
