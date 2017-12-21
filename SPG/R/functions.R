@@ -232,7 +232,7 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
            state <- 'on'
         }
         ## switch pump 'off' if V <= V.min
-        if(state=='on' & Vt <= V.min) {
+        if(state=='on' & V[t] <= V.min) {
             state <- 'off'
             state.changed <- T
         }
