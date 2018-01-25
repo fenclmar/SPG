@@ -276,7 +276,91 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
 
 }
 
+## Modificaiton of pump.trans which accounts for switching pump on/off within one time step
+## if threshold Vmax resp. min is reasched. Inflow within the time step is assumed to be constant.
 
+## flow = matrix with flows (column 1: Q[l/sec], column 2: S[mg/sec])
+## V.max = Volume where pump is switched on [l]
+## V.min = Volume where pump is switched off [l]
+## pump.rate = pump capacity [l/sec]
+pump.trans2 <- function(flow, V.max, V.min=0, pump.rate) {
+
+    ## read temporal resolution [sec]
+    temp.res.sim <- attr(flow, "temp.res.sim")
+
+    ## V = Volume of water in 'tank'
+    V <- rep(V.min, nrow(flow))
+    ## S = mass of substance in 'tank'
+    S <- rep(0, nrow(flow))
+
+    ## water flow out of pump
+    Q.out <- rep(0, nrow(flow))
+    ## substance flow out of pump
+    S.out <- rep(0, nrow(flow))
+
+    ## Check for possible errors due to raw temporal resolution of simulation
+    if (pump.rate * temp.res.sim >= (V.max - V.min)) {warning('Low temp. resolution for given pump rate and tank volume!')}
+    if (max(flow[ ,1], na.rm = T) > (V.max - V.min)) {warning('Low temp. resolution for given flow rate and tank volume!')}
+  
+    ## state of pump
+    state <- 'off'
+    T.pumped <- 0
+    ## mass balances
+    for(t in 2:nrow(flow)) {
+        ## switch pump 'on' if volume is larger than V.max
+        
+        ## new flow if pump was on/off in step t-1
+        V[t] <- V[t-1] + (flow[t-1, 1] - pump.rate * T.pumped) * temp.res.sim
+        
+        state.changed <- F
+        if(V[t] >= V.max) {
+           if (state == 'off') {state.changed <- T}  
+           state <- 'on'
+        }
+        ## switch pump 'off' if V <= V.min
+        if(state=='on' & V[t] <= V.min) {
+            state <- 'off'
+            state.changed <- T
+        }
+
+        ## proportion of time step the pump was on
+        if (state == 'on'){ 
+          if(state.changed){
+              T.pumped <- abs((V[t] - V.max) / (V[t] - V[t-1]))        
+          } else {T.pumped <- 1}
+        } else {
+          if(state.changed){
+             T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - V[t]))        
+          } else {T.pumped <- 0}
+        }
+        
+        ## set Q.out 
+        Q.out[t-1] <- min(pump.rate * T.pumped, V[t-1]/temp.res.sim + flow[t-1, 1]) #
+        ## pump not more out than what is in the tank
+
+        ## mass balance for water
+        V[t] <- V[t-1] + (flow[t-1, 1] - Q.out[t-1])*temp.res.sim
+
+        ## mass balance for SUBSTANCE
+        S.out[t-1] <- S[t-1]/(V[t-1]+flow[t-1, 1]*temp.res.sim)*Q.out[t-1]
+        if(is.nan(S.out[t-1])) S.out[t-1] <- 0 # occurs only when V == 0
+        S[t] <- S[t-1] + flow[t-1, 2]*temp.res.sim - S.out[t-1]*temp.res.sim
+
+        ## prevent rounding errors (due to subtraction of similar numbers)
+        if(S[t]<0) S[t] <- 0
+
+    }
+
+    ## return matrix with flows
+    flow.out <- matrix(c(Q.out, S.out), ncol=2)
+    dimnames(flow.out) <- dimnames(flow)
+    class(flow.out) <- "flow"
+    attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
+    attr(flow.out, "V.sump") <- V # store volume in the pump sump as attribute
+
+    return(flow.out)
+
+}
 
 ## =================================
 ## Function to calculate sewer dispersation
@@ -647,8 +731,31 @@ def.pump <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16)
     return(ff)
 }
 
+# pumping with strict min max rules (use pump.trans2 to generate pump outflow)
+def.pump2 <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16) {
 
+    ff <- function(flow) {
+        flows <- pump.trans(flow, V.max=V.max*1e3, V.min=V.min*1e3, pump.rate=pump.rate)
+        ## compute dispersion of distance > 0
+        if(distance>0) {
+            flows <- disp.trans(flows, distance=distance, v.flow=v.flow, Disp=Disp)
+        }
+        return(flows)
+    }
 
+    ## add attributes for print function
+    attr(ff, "V.max") <- V.max
+    attr(ff, "V.min") <- V.min
+    attr(ff, "pump.rate") <- pump.rate
+    attr(ff, "distance") <- distance
+    attr(ff, "v.flow") <- v.flow
+    attr(ff, "Disp") <- Disp
+    class(ff) <- "pump"
+
+    return(ff)
+}
+                         
+                         
 ## =================================
 ## Sampling function
 ## =================================
