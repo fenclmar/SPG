@@ -276,6 +276,10 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
 
 }
 
+## =================================
+## Function to calculate a transformation due to a pump, modified version
+## =================================
+
 ## Modificaiton of pump.trans which accounts for switching pump on/off within one time step
 ## if threshold Vmax resp. min is reasched. Inflow within the time step is assumed to be constant.
 
@@ -283,83 +287,133 @@ pump.trans <- function(flow, V.max, V.min=0, pump.rate) {
 ## V.max = Volume where pump is switched on [l]
 ## V.min = Volume where pump is switched off [l]
 ## pump.rate = pump capacity [l/sec]
-pump.trans2 <- function(flow, V.max, V.min=0, pump.rate) {
 
+
+pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
+    
     ## read temporal resolution [sec]
     temp.res.sim <- attr(flow, "temp.res.sim")
-
+    
     ## V = Volume of water in 'tank'
     V <- rep(V.min, nrow(flow))
     ## S = mass of substance in 'tank'
     S <- rep(0, nrow(flow))
-
+    
     ## water flow out of pump
     Q.out <- rep(0, nrow(flow))
     ## substance flow out of pump
     S.out <- rep(0, nrow(flow))
-
-    ## Check for possible errors due to raw temporal resolution of simulation
-    if (pump.rate * temp.res.sim >= (V.max - V.min)) {warning('Low temp. resolution for given pump rate and tank volume!')}
-    if (max(flow[ ,1], na.rm = T) > (V.max - V.min)) {warning('Low temp. resolution for given flow rate and tank volume!')}
-  
+    
     ## state of pump
     state <- 'off'
-    T.pumped <- 0
+
     ## mass balances
     for(t in 2:nrow(flow)) {
-        ## switch pump 'on' if volume is larger than V.max
         
-        ## new flow if pump was on/off in step t-1
-        V[t] <- V[t-1] + (flow[t-1, 1] - pump.rate * T.pumped) * temp.res.sim
+        ## calculate volume, pump state and outflow
+        pump <- pump.state(V[t - 1], state, Qin = flow[t - 1, 1],
+                           dt = temp.res.sim, Qp = pump.rate, V.min, V.max)
+        V[t] <- pump[[1]]
+        state <- pump[[2]]
+        Q.out[t] <- pump[[3]]
         
-        state.changed <- F
-        if(V[t] >= V.max) {
-           if (state == 'off') {state.changed <- T}  
-           state <- 'on'
-        }
-        ## switch pump 'off' if V <= V.min
-        if(state=='on' & V[t] <= V.min) {
-            state <- 'off'
-            state.changed <- T
-        }
-
-        ## proportion of time step the pump was on
-        if (state == 'on'){ 
-          if(state.changed){
-              T.pumped <- abs((V[t] - V.max) / (V[t] - V[t-1]))        
-          } else {T.pumped <- 1}
-        } else {
-          if(state.changed){
-             T.pumped <- abs((V[t-1] - V.min) / (V[t-1] - V[t]))        
-          } else {T.pumped <- 0}
-        }
-        
-        ## set Q.out 
-        Q.out[t-1] <- min(pump.rate * T.pumped, V[t-1]/temp.res.sim + flow[t-1, 1]) #
-        ## pump not more out than what is in the tank
-
-        ## mass balance for water
-        V[t] <- V[t-1] + (flow[t-1, 1] - Q.out[t-1])*temp.res.sim
-
         ## mass balance for SUBSTANCE
-        S.out[t-1] <- S[t-1]/(V[t-1]+flow[t-1, 1]*temp.res.sim)*Q.out[t-1]
-        if(is.nan(S.out[t-1])) S.out[t-1] <- 0 # occurs only when V == 0
-        S[t] <- S[t-1] + flow[t-1, 2]*temp.res.sim - S.out[t-1]*temp.res.sim
-
+        S.out[t - 1] <- S[t - 1] / (V[t - 1] + flow[t - 1, 1] * temp.res.sim) * Q.out[t - 1]
+        if (is.nan(S.out[t - 1])) S.out[t - 1] <- 0 # occurs only when V == 0
+        S[t] <- S[t-1] + flow[t - 1, 2] * temp.res.sim - S.out[t - 1] * temp.res.sim
+        
         ## prevent rounding errors (due to subtraction of similar numbers)
         if(S[t]<0) S[t] <- 0
-
+        
     }
-
+    
     ## return matrix with flows
     flow.out <- matrix(c(Q.out, S.out), ncol=2)
     dimnames(flow.out) <- dimnames(flow)
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
     attr(flow.out, "V.sump") <- V # store volume in the pump sump as attribute
-
+    
     return(flow.out)
+    
+}
 
+
+## =================================
+## Function to get tank volume
+## =================================
+
+## V0: volume (i-1) in the pump sump [l]
+## state: pump is 'on' or 'off'
+## Qin: inflow rate into pump sump [l/s]
+## dt: time step [s]
+## Qp: pump rate [l/s]
+## V.min: volume threshold for switching pum off [l]
+## V.max: volume threshold for switching pum on [l]
+
+## returns estimated volume, pump state and outflow
+
+pump.state <- function (V0, state, Qin, dt, Qp, V.min, V.max) {
+    
+    ## If NA Values in V0 (initial volume), Qin (inflow) or Qp (pump rate), then stop
+    if ( sum(is.na(c(V0, Qin, Qp))) > 0 ) {
+        stop ('NA values in volumes, inflow and pump rate are not allowed!') 
+    }
+    
+    
+    vi <- V0    # initial tank volume
+    t_on <- 0   # duration of pumping (pump being on)
+    t_off <- 0  # duration of no-pumping (pump being off)
+    t_rest <- dt - (t_off + t_on) # time left within the time step
+    t_fill <- NA  # time needed to fill the tank (to V.max)
+    t_empt <- NA  # time needed to empty the tank (to V.min)
+    
+    if (vi > V.max) {state <- 'on'}    # check the state
+    if (vi < V.min) {state <- 'off'}   # check the state 
+    
+    ## loop until time left is zero (until the end of time step)
+    while (t_rest > 0) {
+
+        if (state == 'off') {  # filling
+
+            # estimate filling time (set negatives to zero)
+            t_fill <- (V.max - vi) / Qin
+            t_fill <- t_fill * (t_fill > 0)
+
+            if (t_rest <= t_fill) {
+                t_off <- t_off + t_rest
+                t_rest <- 0
+            } else {
+                t_off <- t_off + t_fill
+                t_rest <- t_rest - t_fill
+                state <- 'on'
+                vi <- V.max
+            }
+        }    
+
+        if (state == 'on') { # emptying
+
+            # estimate emptying time (set negatives to zero)
+            t_empt <- (vi - V.min) / (Qp - Qin)
+            t_empt <- t_empt * (t_empt > 0)
+
+            if (t_rest <= t_empt) {
+                t_on <- t_on + t_rest
+                t_rest <- 0
+            } else {
+                t_on <- t_on + t_empt
+                t_rest <- t_rest - t_empt
+                state <- 'off'
+                vi <- V.min
+            } 
+        }
+
+    }            
+    
+    v1 <- V0 + Qin * dt - Qp * t_on  # tank volume at the end of the time step
+    
+    # return list with new tank volume and pump state and pump rate averaged over the wole time step
+    return (list('v1' = v1, 'state'= state, flow.out = Qp * t_on / dt))     
 }
 
 ## =================================
@@ -731,7 +785,25 @@ def.pump <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16)
     return(ff)
 }
 
-# pumping with strict min max rules (use pump.trans2 to generate pump outflow)
+## =================================
+## generate pump function with modified pumping
+## =================================
+## combines pump and dispersion
+## pumpes with strict Vmin Vmax rules (uses pump.trans2 to generate pump outflow)
+##
+## flows = flow object
+## V.max = Volume where pump is switched on [m^3]
+## V.min = Volume where pump is switched off [m^3]
+## pump.rate = pump capacity [l/sec]
+## distance: sewer distance [meters]
+## flow.v: flow velocity [meter/sec]
+## Disp    dispersion
+
+## return a function that thake a 'flow'-object as input
+
+                    
+                         
+
 def.pump2 <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16) {
 
     ff <- function(flow) {
