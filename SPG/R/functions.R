@@ -804,10 +804,10 @@ def.pump <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16)
                     
                          
 
-def.pump2 <- function(V.max, V.min=0, pump.rate, distance=0, v.flow=1, Disp=0.16) {
+def.pump2 <- function(V.max, V.min = 0, pump.rate, distance = 0, v.flow = 1, Disp = 0.16) {
 
     ff <- function(flow) {
-        flows <- pump.trans(flow, V.max=V.max*1e3, V.min=V.min*1e3, pump.rate=pump.rate)
+        flows <- pump.trans2(flow, V.max=V.max*1e3, V.min=V.min*1e3, pump.rate=pump.rate)
         ## compute dispersion of distance > 0
         if(distance>0) {
             flows <- disp.trans(flows, distance=distance, v.flow=v.flow, Disp=Disp)
