@@ -305,16 +305,16 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     S.out <- rep(0, nrow(flow))
     
     ## state of pump
-    state <- 'off'
-
+    state <- rep('off', nrow(flow))
+  
     ## mass balances
     for(t in 2:nrow(flow)) {
         
         ## calculate volume, pump state and outflow
-        pump <- pump.state(V[t - 1], state, Qin = flow[t - 1, 1],
+        pump <- pump.state(V[t - 1], state[t], Qin = flow[t - 1, 1],
                            dt = temp.res.sim, Qp = pump.rate, V.min, V.max)
         V[t] <- pump[[1]]
-        state <- pump[[2]]
+        state[t] <- pump[[2]]
         Q.out[t] <- pump[[3]]
         
         ## mass balance for SUBSTANCE
@@ -333,6 +333,7 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
     attr(flow.out, "V.sump") <- V # store volume in the pump sump as attribute
+    attr(flow.out, "pump.state") <- state # store volume in the pump sump as attribute
     
     return(flow.out)
     
