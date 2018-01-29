@@ -311,7 +311,7 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     for(t in 2:nrow(flow)) {
         
         ## calculate volume, pump state and outflow
-        pump <- pump.state(V[t - 1], state[t], Qin = flow[t - 1, 1],
+        pump <- pump.state(V[t - 1], state[t - 1], Qin = flow[t - 1, 1],
                            dt = temp.res.sim, Qp = pump.rate, V.min, V.max)
         V[t] <- pump[[1]]
         state[t] <- pump[[2]]
