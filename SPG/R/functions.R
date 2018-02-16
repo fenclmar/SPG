@@ -1026,7 +1026,8 @@ plot.flow <- function(x, days=NULL, from=0, title=NULL, ...) {
 
     if(temp.res.sim1 !=  temp.res.sim2) stop("The two flow objects must have the same 'temp.res'!")
     if(nrow(e1) != nrow(e2)) stop("The two flow objects must have the same simulation duration!")
-
+    
+    return(e1 + e2)
     #NextMethod()                        # call method to add matrices
 }
 
