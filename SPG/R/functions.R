@@ -1017,7 +1017,7 @@ plot.flow <- function(x, days=NULL, from=0, title=NULL, ...) {
 "+.flow" <- function(e1, e2 = NULL) {
     temp.res.sim1 <- attr(e1, "temp.res.sim")
     temp.res.sim2 <- attr(e2, "temp.res.sim")
-    
+    print('hovno')
     attr(e1, 'V.sump') <- NULL
     attr(e1, 'pump.state') <- NULL
     
