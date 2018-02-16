@@ -333,7 +333,7 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
     attr(flow.out, "V.sump") <- V # store volume in the pump sump as attribute
-    attr(flow.out, "pump.state") <- state # store volume in the pump sump as attribute
+    attr(flow.out, "pump.state") <- state # store pump state as attribute
     
     return(flow.out)
     
@@ -467,10 +467,60 @@ disp.trans <- function(flow, distance, v.flow=1, Disp=0.16) {
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
     attr(flow.out, "V.sump") <- attr(flow, "V.sump") # store volume in the pump sump as attribute
-  
+    
+    
     return(flow.out)
 
 }
+
+disp.trans2 <- function(flow, distance, v.flow=1, Disp=0.16) {
+    
+    ## read temporal resolution [sec]
+    temp.res.sim <- attr(flow, "temp.res.sim")
+    t.sim <- nrow(flow)*temp.res.sim
+    
+    ## Calculate dispersion in function of the distance
+    ## define delay and sd -> shape is fix
+    delay <- distance/v.flow    # [sec]
+    sd <- sqrt(1^2 + 2*Disp*distance/v.flow^3) # [sec.]
+    ## calculate scale
+    shape <- 3
+    scale <- sd/sqrt(shape)
+    
+    Resp <- dgamma(seq(0, t.sim-1, temp.res.sim)-delay, scale=scale, shape=shape)*temp.res.sim
+    
+    Resp <- Resp/sum(Resp)              # normlize due to discretion error
+    
+    ## convolute inputs with Resp
+    
+    Q.in <- flow[,1]
+    S.in <- flow[,2]
+    ln <- length(Q.in)
+    
+    ## pad zeros to ensure a 'good' length for the FFT
+    nn <- nextn(ln, 2)               #find good length
+    Q.in <- c(Q.in, rep(0, nn-ln))
+    S.in <- c(S.in, rep(0, nn-ln))
+    Resp <- c(Resp, rep(0, nn-ln))
+    
+    Q.out <- convolve(Q.in, rev(Resp), type="open")[1:ln]
+    S.out <- convolve(S.in, rev(Resp), type="open")[1:ln]
+    
+    ## return matrix with flow
+    flow.out <- matrix(c(Q.out[1:nrow(flow)], S.out[1:nrow(flow)]), ncol=2)
+    dimnames(flow.out) <- dimnames(flow)
+    ## set very small values (due to numerical errors) to zero
+    flow.out[flow.out < sqrt(.Machine$double.eps)] <- 0
+    
+    class(flow.out) <- "flow"
+    attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
+    attr(flow.out, "V.sump") <- attr(flow, "V.sump") # store volume in the pump sump as attribute
+    attr(flow.out, "pump.state") <- attr(flow, "pump.state") # store pump state as attribute
+    
+    return(flow.out)
+    
+}
+
 
 
 
@@ -811,7 +861,7 @@ def.pump2 <- function(V.max, V.min = 0, pump.rate, distance = 0, v.flow = 1, Dis
         flows <- pump.trans2(flow, V.max=V.max*1e3, V.min=V.min*1e3, pump.rate=pump.rate)
         ## compute dispersion of distance > 0
         if(distance>0) {
-            flows <- disp.trans(flows, distance=distance, v.flow=v.flow, Disp=Disp)
+            flows <- disp.trans2(flows, distance=distance, v.flow=v.flow, Disp=Disp)
         }
         return(flows)
     }
