@@ -395,7 +395,7 @@ pump.state <- function (V0, state, Qin, dt, Qp, V.min, V.max) {
         if (state == 'on') { # emptying
 
             # estimate emptying time (set negatives to zero)
-            if (Qp <= Qin) {
+            if (Qin < Qp) {
                 t_empt <- (vi - V.min) / (Qp - Qin)
                 if (t_left <= t_empt) {
                     t_on <- t_on + t_left
@@ -410,7 +410,6 @@ pump.state <- function (V0, state, Qin, dt, Qp, V.min, V.max) {
                 t_on <- t_left
                 vi <- vi + t_left * Qin
                 t_left <- 0
-                
             }
         }
 
