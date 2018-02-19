@@ -328,7 +328,7 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     }
     
     ## return matrix with flows
-    flow.out <- matrix(c(Q.out, S.out), ncol=2)
+    flow.out <- matrix(c(Q.out, S.out), ncol = 2)
     dimnames(flow.out) <- dimnames(flow)
     class(flow.out) <- "flow"
     attr(flow.out, "temp.res.sim") <- temp.res.sim # store resolution as attribute
@@ -365,28 +365,28 @@ pump.state <- function (V0, state, Qin, dt, Qp, V.min, V.max) {
     vi <- V0    # initial tank volume
     t_on <- 0   # duration of pumping (pump being on)
     t_off <- 0  # duration of no-pumping (pump being off)
-    t_rest <- dt - (t_off + t_on) # time left within the time step
+    t_left <- dt - (t_off + t_on) # time left within the time step
     t_fill <- NA  # time needed to fill the tank (to V.max)
     t_empt <- NA  # time needed to empty the tank (to V.min)
     
-    if (vi > V.max) {state <- 'on'}    # check the state
-    if (vi < V.min) {state <- 'off'}   # check the state 
+    if (vi >= V.max) {state <- 'on'}    # check the state
+    if (vi <= V.min) {state <- 'off'}   # check the state 
     
     ## loop until time left is zero (until the end of time step)
-    while (t_rest > 0) {
+    while (t_left > 0) {
 
         if (state == 'off') {  # filling
 
-            # estimate filling time (set negatives to zero)
             t_fill <- (V.max - vi) / Qin
-            t_fill <- t_fill * (t_fill > 0)
+            #t_fill <- t_fill * (t_fill > 0) # set negative to zero
 
-            if (t_rest <= t_fill) {
-                t_off <- t_off + t_rest
-                t_rest <- 0
+            if (t_left <= t_fill) {
+                t_off <- t_off + t_left
+                vi <- vi + t_left * Qin
+                t_left <- 0
             } else {
                 t_off <- t_off + t_fill
-                t_rest <- t_rest - t_fill
+                t_left <- t_left - t_fill
                 state <- 'on'
                 vi <- V.max
             }
@@ -395,18 +395,23 @@ pump.state <- function (V0, state, Qin, dt, Qp, V.min, V.max) {
         if (state == 'on') { # emptying
 
             # estimate emptying time (set negatives to zero)
-            t_empt <- (vi - V.min) / (Qp - Qin)
-            t_empt <- t_empt * (t_empt > 0)
-
-            if (t_rest <= t_empt) {
-                t_on <- t_on + t_rest
-                t_rest <- 0
-            } else {
-                t_on <- t_on + t_empt
-                t_rest <- t_rest - t_empt
-                state <- 'off'
-                vi <- V.min
-            } 
+            if (Qp < Qin) {
+                t_empt <- (vi - V.min) / (Qp - Qin)
+                if (t_left <= t_empt) {
+                    t_on <- t_on + t_left
+                    t_left <- 0
+                } else {
+                    t_on <- t_on + t_empt
+                    t_left <- t_left - t_empt
+                    state <- 'off'
+                    vi <- V.min
+                }
+            else {
+                t_on <- t_left
+                vi <- vi + t_left * Qin
+                t_left <- 0
+                
+            }
         }
 
     }            
@@ -1017,7 +1022,7 @@ plot.flow <- function(x, days=NULL, from=0, title=NULL, ...) {
 "+.flow" <- function(e1, e2 = NULL) {
     temp.res.sim1 <- attr(e1, "temp.res.sim")
     temp.res.sim2 <- attr(e2, "temp.res.sim")
-    print('hovno')
+
     attr(e1, 'V.sump') <- NULL
     attr(e1, 'pump.state') <- NULL
     
@@ -1027,8 +1032,7 @@ plot.flow <- function(x, days=NULL, from=0, title=NULL, ...) {
     if(temp.res.sim1 !=  temp.res.sim2) stop("The two flow objects must have the same 'temp.res'!")
     if(nrow(e1) != nrow(e2)) stop("The two flow objects must have the same simulation duration!")
     
-    return(e1 + e2)
-    #NextMethod()                        # call method to add matrices
+    NextMethod()                        # call method to add matrices
 }
 
 
