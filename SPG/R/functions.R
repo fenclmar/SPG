@@ -308,10 +308,10 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
     state <- rep('off', nrow(flow))
   
     ## mass balances
-    for(t in 2:nrow(flow)) {
+    for(t in 2 : nrow(flow)) {
         
         ## calculate volume, pump state and outflow
-        pump <- pump.state(V[t - 1], state[t - 1], Qin = flow[t - 1, 1],
+        pump <- pump.state(V[t - 1], state[t - 1], Qin = flow[t, 1],
                            dt = temp.res.sim, Qp = pump.rate, V.min, V.max)
         V[t] <- pump[[1]]
         state[t] <- pump[[2]]
@@ -320,10 +320,10 @@ pump.trans2 <- function(flow, V.max, V.min = 0, pump.rate) {
         ## mass balance for SUBSTANCE
         S.out[t - 1] <- S[t - 1] / (V[t - 1] + flow[t - 1, 1] * temp.res.sim) * Q.out[t - 1]
         if (is.nan(S.out[t - 1])) S.out[t - 1] <- 0 # occurs only when V == 0
-        S[t] <- S[t-1] + flow[t - 1, 2] * temp.res.sim - S.out[t - 1] * temp.res.sim
+        S[t] <- S[t - 1] + flow[t, 2] * temp.res.sim - S.out[t - 1] * temp.res.sim
         
         ## prevent rounding errors (due to subtraction of similar numbers)
-        if(S[t]<0) S[t] <- 0
+        if (S[t] < 0) S[t] <- 0
         
     }
     
